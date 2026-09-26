@@ -4,7 +4,7 @@
 
 var SPEC = {
     currentThemeName: {
-        def: "purple",
+        def: "blue",
         onChange: "applyStoredTheme"
     },
     customThemeFile: {

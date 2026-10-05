@@ -1,0 +1,173 @@
+# CyShell QML Common
+
+Shared QML assets for CyShell, forked from dank-qml-common.
+
+The library lives in `CyCommon/` and is consumed through Quickshell's `qs.` namespace:
+
+```qml
+import qs.CyCommon.Widgets
+import qs.CyCommon.Common
+import qs.CyCommon.Modals.FileBrowser
+import qs.CyCommon.Session
+```
+
+`CyCommon/Session/` holds the components shared between the DMS lock screen and [dms-greeter](https://github.com/AvengeMedia/dank-greeter): the power menu (`LockPowerMenu`) and the on-screen keyboard (`Keyboard`, `KeyboardController`, `CustomButtonKeyboard`). `LockMetrics`, `LockActionButton`, and `LockNotificationCard` provide reusable lock-screen geometry and surfaces. `PowerMenuView` supplies the shared grid/list controls for the shell and lock power menus. `KeyboardController.expressive` and `LockPowerMenu.expressive` opt into Expressive styling; both default to `false`.
+
+`CyCommon/Common/LayoutCodes.js` (keyboard layout name → short code) is imported by relative path.
+
+## Consuming from an app
+
+Add this repo as a git submodule at the app repo root, then symlink it into the quickshell config root:
+
+```sh
+git submodule add -b cyshell-dev https://github.com/Cytech-Team/CyShell-QML-Common.git dank-qml-common
+ln -s ../dank-qml-common/CyCommon quickshell/CyCommon
+```
+
+Anything that copies the quickshell tree for packaging must dereference the symlink (`cp -rL`) - `go:embed` and most packaging flows reject symlinks.
+
+## Migrating from DankCommon
+
+Expose the `CyCommon/` directory at the Quickshell config root and change imports to `qs.CyCommon.*`. The `Dank*` widget and animation types are now named `Cy*`, including `CySocket`. Unprefixed types such as `StyledText`, `WindowBlur`, and `KeyboardController` retain their names. This checkout does not provide the old import namespace.
+
+Update relative JavaScript imports, packaged asset paths, test fixtures, and translation extraction roots to `CyCommon/`. Inject the host singletons into `qs.CyCommon.Common` as described below. `Proc.dmsBin` became `Proc.cyshellBin`, with the `CYSHELL_EXECUTABLE` override. `CyMonthGrid.transparentUnselectedCells` and `centerDayNumbers` are optional and default to `false`.
+
+`WindowBlur` retains its geometry, clipping, enablement, and `kick()` API. It publishes `BackgroundEffect.blurRegion` through Quickshell's Wayland API when enabled by the host theme. It skips background effects on LabWC: the current CyShell LabWC session does not advertise `ext-background-effect-v1`. Transparency remains available; compositor blur requires that protocol. On other compositors, Quickshell negotiates the protocol and leaves unsupported effects unapplied. The helper uses event-triggered, one-shot timers and does no periodic polling.
+
+## Standalone development
+
+The repo root is a runnable Quickshell config with stub singletons and a widget gallery:
+
+```sh
+qs -p /path/to/dank-qml-common
+```
+
+For qmlls completion, create an empty `.qmlls.ini` at the repo root once (`touch .qmlls.ini`, gitignored) - quickshell replaces it with a generated config on the next launch, and every file in the repo gets language-server support. The stubs in `Common/` and `Services/` double as the executable contract below - if a shared widget needs a new singleton property, add it to the stub in the same change.
+
+## Widgets
+
+`CySlider` leaves wheel input to any enclosing scrollable container, which forces `wheelEnabled` false. Outside one, `wheelEnabled` controls wheel adjustment. Dragging and keyboard adjustment work in either case.
+
+`CyDialog` provides a title, supporting text, scrollable content and trailing actions. Use it as content inside a window, or set `embedded: false` for its scrim, elevated surface and entry motion. Handle `accepted` and `rejected`; use `acceptEnabled` and `closeEnabled` for pending actions.
+
+`CyBottomSheet` fills its parent with a scrim and a bottom-aligned, scrollable sheet. Bind `opened`, handle `dismissRequested`, and place content inside it. The handle supports dragging down to dismiss. `initialFocusItem` selects the first control; `returnFocusItem` overrides the saved opener. `dismissible: false` blocks dismissal. Use the visible viewport as its parent when the underlying content scrolls. The handle uses `bottomSheetHandleWidth` and `bottomSheetHandleHeight` (36 and 4). Its color is `onSurfaceVariant_40` (`onSurfaceVariant` at 40% opacity).
+
+`CyWindowHeader` provides floating-window titles, optional subtitles, and minimize, maximize, and close buttons. Set `controls` to the window's `FloatingWindowControls`, provide `title`, and handle `closeRequested`. The title is centered in the window and elides symmetrically so it never runs under the buttons; set `titleAlignment: Text.AlignLeft` for a left-aligned headline. Add toolbar actions as children. Use `closeEnabled` and `closeTooltipText` when closing depends on dialog state. Set `controls: null` for an embedded surface with only a close button. The component owns title typography, button styling, spacing, and dragging; size the content below it from the header's height.
+
+`CyReorderList` lays out a model with variable-height delegates and emits `reordered(indices)` for persistence. Pair it with `CyDragHandle`, which extends `CyActionButton`: connect `started`, `moved`, `finished`, `dragCanceled`, and `moveRequested` to the list's `begin(index, position)`, `dragTo(position)`, `finish()`, `cancel()`, and `move(index, delta)`. Set `coordinateItem` to the list and bind `dragging` to `list.draggingIndex === index`. Set `flickable` for edge scrolling. Delegates can gate position transitions on `animateLayout` and implement `focusHandle(reason)` to restore focus after a move.
+
+`CyReorderGroup` coordinates transfers between lists. Set each list's `group`, `groupKey`, and `dropArea`, and set the group's `coordinateItem` to their common ancestor. Handle `transferred(sourceList, sourceIndex, targetList, targetIndex)` to persist a transfer. Bind a preview to `sourceItem` and `position`; the group manages insertion gaps and cancellation across its lists.
+
+`CyCommon/Widgets/` (`qs.CyCommon.Widgets`) holds Material 3 Expressive controls (toggle, slider, buttons, button group, chips, tabs, dropdown, text fields, stepper, collapsible section, location search, refresh button, tooltip) plus `CyCard` (tonal surfaces with shared content colors, focus and pressed states), `CyListRow` (passive grouped rows with separate child controls), `CyClockFace` (responsive digital and stacked time layouts), `CyAnalogClock` (hands, hour numbers, orbiting second dot and a date label that avoids the hands, on a `CyOrganicBlob` lobed background), `CyTimePicker`, `CyMonthGrid` (a month calendar grid with day cells, event dots, week numbers, optional weekend tint and a `dayClicked` signal), `CyMaterialShape` (M3 expressive shapes such as cookie, sunny, burst, clover, gem and diamond drawn with QtQuick.Shapes) `CySparkline` (a smoothed trend line with area fill for one or two series) and `CyRingGauge` (a 0 to 1 arc with a track, a center content slot, `startAngle`/`spanAngle` for open arcs and `trackGap` to split the track from the value; a negative `value` hides the ring). All widgets use this module. CyShell re-exports them through `quickshell/Widgets/`; shell consumers import `qs.Widgets`. Expressive widgets read the shape scale, state layer, spring and on-role tokens listed below.
+
+`CySlider.startIcon` and `endIcon` follow RTL. Set `iconsClickable: true` to decrease and increase the value using the slider's keyboard step. Both actions use `sliderValueChanged` and `sliderDragFinished`. The old `leftIcon` and `rightIcon` names remain aliases.
+
+`CySlider` handles follow the M3 tokens: 4 px wide (`sliderHandleWidth`), 2 px while pressed (`sliderHandleWidthPressed`), and as tall as the selected size prescribes (`sliderHandleHeight`, `sliderHandleHeightS/M/L/XL`).
+
+`CySlider.centerMinimum` places `minimum` halfway along the track and fills the track up to the handle. The remaining half covers `minimum` through `maximum`; positions before the midpoint select `minimum`. For a 100–200 range, 100 is at the centre, 150 at three-quarters, and 200 at the end. RTL reverses the direction.
+
+`CySlider.insetIcon` places an icon inside medium and larger standard sliders. `insetIconPosition` accepts `"start"` or `"end"` and follows RTL. Set `insetIconClickable` and `insetIconTooltip` for an action, and handle `insetIconClicked`. Clicking activates the icon; dragging from it adjusts the slider. `focusTargets` exposes the icon action and slider for explicit keyboard traversal. `fillTextColor` and `trackTextColor` control icon contrast on their respective track segments. Value bubbles render above clipped content.
+
+
+`CySparkline.edgeExtension` extends the strokes past the end samples using their neighbouring slopes, bounded by the vertical insets. It does not add sample dots.
+
+`CySparkline.xValues` positions samples on an explicit axis between `minimumX` and `maximumX`. Omit it for evenly spaced samples.
+
+`CyButtonGroup` accepts `{ text, icon }` options. Set `iconOnly: true` for icons with text tooltips and accessible names.
+
+`CyFlickable.wheelEnabled` disables its vertical wheel handler when a surface supplies horizontal wheel navigation. Touch and mouse dragging remain available.
+
+`WindowCaptureGuard.prepare()` sets `active` and waits for a rendered frame before emitting `ready`. Bind the transparent window's content and blur visibility to `!active`; hide the window and start capture on `ready`. Call `cancel()` when restoring or abandoning the capture.
+
+`CyDialog.popout` drops the header and uses compact popout spacing. `headerActions` adds buttons before the shared window controls.
+
+`CySlider.trackGradient` paints a continuous gradient across both track segments and follows RTL. The normal handle, gap, input and disabled behavior are preserved.
+
+`CySaturationValuePicker` edits saturation and value for a given hue. Bind its three values and handle `colorChanged(saturation, value)`. Arrow keys adjust by 1%, Shift adjusts by 10%, Home/End set saturation, and PageUp/PageDown adjust value.
+
+`CyColorButton` displays `swatchColor` with a selection check and emits `clicked`. Set `selected` to reflect the current color. `CyColorSwatch.minPreviewAlpha: 0` displays the exact alpha over a checkerboard.
+
+## The contract
+
+Shared code never imports app singletons. The app injects them once at startup (`DC.Style.theme = Theme`, `DC.Style.settings = SettingsData`, `DC.I18n.backend = I18n`, `DC.Paths.backend = Paths`, `DC.Log.backend = Log`, `DC.Host.session = SessionService`, `DC.Host.cache = CacheData`, with `import qs.CyCommon.Common as DC`), and `Style` reads every token through `theme?.x ?? fallback`. The gallery's `shell.qml` does the same with the stubs in `Common/` and `Services/`. Every consuming app must provide these singletons with at least the properties the library reads:
+
+### `qs.Common` → Theme
+
+Colors: `primary`, `primaryText`, `primaryContainer`, `primaryHover`, `primaryHoverLight`, `primaryPressed`, `primarySelected`, `secondary`, `surface`, `surfaceText`, `surfaceTextHover`, `surfaceTextMedium`, `surfaceTextSecondary`, `surfaceVariant`, `surfaceVariantText`, `surfaceVariantAlpha`, `surfaceHover`, `surfacePressed`, `surfaceContainer`, `surfaceContainerHigh`, `surfaceTint`, `surfaceLight`, `background`, `outline`, `outlineButton`, `outlineMedium`, `outlineStrong`, `outlineHeavy`, `error`, `errorHover`, `errorSelected`, `warning`, `shadowStrong`, `buttonBg`, `buttonText`, `buttonHover`, `buttonPressed`, `floatingSurface`, `nestedSurface`, `floatingWindowSurface`, `floatingWindowNestedSurface`, `floatingWindowFieldColor`, `floatingWindowFieldBorderColor`, `floatingWindowFieldFocusedBorderColor`, `popupFieldColor`, `popupFieldBorderColor`, `popupFieldFocusedBorderColor`, `widgetBaseHoverColor`, `onPrimary`, `onSurface`, `onSurface_12`, `onSurface_38`, `contrastDark`, `contrastLight`.
+ Widgets also read `tertiary`, `surfaceContainerLowest`, `surfaceContainerLow`, `surfaceContainerHighest`, `surfaceBright`, `surfaceDim`, `outlineVariant`, `secondaryContainer`, `tertiaryContainer`, `onSurfaceVariant`, `onSurfaceVariant_30`, `onSurfaceVariant_40`, `onPrimaryContainer`, `onSecondaryContainer`, `onTertiaryContainer`, `onErrorContainer`, `selectedContainer`, `onSelectedContainer`, `accentOnPrimaryContainer`, `inverseSurface`, `inverseOnSurface`, `tonalTintAlpha`, `accents` (categorical container/glyph pairs from `Accents.derive`, read through `Style.accent(name)`).
+ Container fills go through the semantic roles `hostSurface`, `cardSurface`, `chipSurface`, `chipSurfaceNested`: a host floats over the desktop, a card sits inside a host, a chip sits inside a card, and a nested chip sits inside a chip. The raw `surfaceContainer*` tokens stay palette-honest.
+
+Metrics: `spacingXXS`..`spacingXL`, `fontSizeSmall`..`fontSizeXLarge`, `iconSizeSmall`/`iconSize`/`iconSizeLarge`, `cornerRadius`.
+ Expressive: `fontSizeXXLarge`, the shape scale `shapeScale`, `cornerRadiusXS`..`cornerRadiusXXL`, `cornerRadiusLIncreased`, `cornerRadiusXLIncreased`, `cornerRadiusFull` (compatibility sentinel; `cornerRadiusSmall`/`cornerRadiusLarge` alias S/L), `groupedListGap`, `groupedListInnerRadius`, `groupedListOuterRadius`, `iconButtonSize`, `minimumTouchTargetSize`, `listItemHeight`, `listItemTwoLineHeight`, `avatarSize`, `sliderTrackHeight`, `sliderHandleWidth`, `sliderHandleWidthPressed`, `sliderHandleHeight`, `sliderHandleGap`, `sliderTrackHeightS/M/L/XL`, `sliderHandleHeightS/M/L/XL`, `switchTrackWidth`, `switchTrackHeight`, `switchOutlineWidth`, `switchThumbUnselected`, `switchThumbSelected`, `switchThumbPressed`, `sliderStopSize`, `sliderTickSize`, `sliderTrackMinAlpha`, `menuItemHeight`, `iconSizeMedium`, `outlineWidth`, `outlineWidthFocused`, `layerOutlineWidth`, `dividerWidth`, `focusRingWidth`, `focusRingOffset`, `focusRingColor`, `scrimAlpha`, `smallBreakpoint`, `mediumBreakpoint`, `fontSizeDisplay`, `fontSizeDisplayLarge`, `buttonHeightXS/S/M`, `buttonMinWidth`, `pressScale`, `iconEnterScale`, `popupEnterScale`, `osdHeight`, `dialogMaxWidth`, `bottomSheetHandleWidth`, `bottomSheetHandleHeight`, `pendingOpacity`, `spinnerStrokeWidth`, `tabMinWidth`, `tabIndicatorHeight`, `tabIndicatorMinWidth`, `tabIndicatorInset`, `fieldDefaultWidth`, `fieldHeight`, `fieldHeightLarge`, `outlinedFieldLabelLineHeight`, `textFieldSpatialStiffness`, `textFieldSpatialDampingRatio`, `textFieldFastEffectsStiffness`, `textFieldSlowEffectsStiffness`, `textEditHeight`, `tooltipMaxWidth`, `tooltipDelay`, `menuMaxHeight`, `clockFaceSize`, `clockOuterRingRatio`, `clockInnerRingRatio`, `clockHandWidth`, `clockHandleSize`, `clockCenterSize`, `clockSwitchDelay`, `chipIconSize`, `buttonGroupExpandRatio`.
+
+[Shapes](SHAPES.md) documents `radiusStrength`, the component baselines and the radius helpers.
+
+`CySplitButton` supports `xs`, `s`, `m`, `l`, and `xl` sizes and `filled`, `tonal`, `outlined`, and `elevated` variants. Handle `clicked` for the main action and `menuClicked` for the menu. Set `menuOnly: true` to open the menu from either half. Bind `expanded` to the menu's visibility and use `trailingButton` as its anchor and focus return target. The gallery includes both interaction modes.
+
+`CyLayer` groups content for opacity effects and sizes its texture in physical pixels using the window's device pixel ratio.
+
+Google Sans Flex is bundled under the [SIL Open Font License](CyCommon/assets/fonts/google-sans-flex/OFL.txt), from [Google Fonts](https://fonts.google.com/specimen/Google+Sans+Flex).
+
+Typography: `fontFamily`, `monoFontFamily`, `displayFontFamily`, `defaultFontFamily`, `defaultMonoFontFamily`, `defaultDisplayFontFamily`, `fontWeight`. The library bundles and registers its own fonts (Google Sans Flex, FiraCode Nerd Font, DM Serif Display, Notable, Material Symbols - `CyCommon/assets/fonts/`) through the `Fonts` singleton in `qs.CyCommon.Common`; apps typically bind `defaultFontFamily: Fonts.sans`, `defaultMonoFontFamily: Fonts.mono` and `defaultDisplayFontFamily: Fonts.display` rather than shipping font files of their own. `StyledText { fontToken: "display" }` resolves through `Style.fontFor(token)`: `ui`, `mono`, `display`, or a family name such as one from `Fonts.bundledFamilies`. Adding a bundled face is a font file with its license, a `FontLoader` and an entry in `Fonts.bundledFamilies`.
+
+Animation: `shorterDuration`, `shortDuration`, `mediumDuration`, `standardEasing`, `emphasizedEasing`, `currentAnimationSpeed`, `expressiveCurves`, `expressiveDurations`.
+ Expressive: `stateLayerHover`, `stateLayerFocus`, `stateLayerPressed`, `stateLayerDrag`, `springSpecs`, `springDampingScales`, `springMotionDisabled`, `springPreset(name, baseDuration)` returning `{stiffness, damping, mass}`, `elevationLevel1`, `elevationLevel3`.
+
+Misc: `isLightMode`, `popupTransparency`, `floatingWindowTransparency`, `blurLayersActive`, `connectedSurfaceBlurEnabled`, `elevationEnabled`, `elevationLevel2` (`{blurPx, offsetX, offsetY, spreadPx, alpha}`), `currentAnimationBaseDuration`, `withAlpha(color, alpha)` - which must tolerate an undefined color and return transparent - and `blendAlpha(color, alpha)` with the same tolerance.
+
+Optional (used by `ElevationShadow` when present, static fallbacks otherwise): `elevationLightDirection`, `elevationOffsetXFor()`, `elevationOffsetYFor()`, `elevationShadowColor()`, `elevationAmbient()`.
+
+### `qs.Common` → SettingsData
+
+Enums `AnimationSpeed`, `TextRenderType`, `TextRenderQuality`; properties `animationSpeed`, `enableRippleEffects`, `popoutElevationEnabled`, `textRenderType`, `textRenderQuality`.
+ Expressive motion: `reduceMotion`, `springBounce`. Blur border (FileBrowser): `blurBorderEnabled`, `blurBorderOpacity`, `blurBorderColor`, `blurBorderCustomColor`.
+
+Lock surfaces: `lockScreenContentColor`, `lockScreenScrimAlpha`, `lockScreenBlur`, `lockScreenBlurMax`, `screenOffColor`.
+
+Power menu (Session components): `powerActionConfirm`, `powerActionHoldDuration`, `powerMenuActions`, `powerMenuDefaultAction`, `powerMenuGridLayout`.
+
+### `qs.Common` → Anims, Paths, CacheData, I18n
+
+- Anims: `durShort`, `standard`, `emphasized` (bezier arrays)
+- Paths: `xdgCache`, `imagecache` (urls), `strip(url)`, `stringify(url)`, `resolveIconPath(iconName)` (return `""` when the app has no icon-theme resolution), `trashPath(path, callback)` (callback receives a success bool), `copyPathToClipboard(path)`; the app must create `imagecache`. The stub defaults use `gio trash` and `Quickshell.clipboardText` - apps route these through their own trash and clipboard machinery so the library itself imposes no runtime dependency
+- CacheData: `fileBrowserSettings` (var), `wallpaperLastPath`, `profileLastPath`, `saveCache()`
+- I18n: `tr(term, context)`, `isRtl`
+
+### `qs.Services` → Log
+
+`scoped(module)` returning `{debug, info, warn, error}`.
+
+### `qs.Services` → SessionService
+
+Used by `LockPowerMenu`: `hibernateSupported` plus `logout()`, `suspend()`, `hibernate()`, `reboot()`, `poweroff()`. Apps where an action makes no sense (logout in a greeter) provide it as a no-op.
+
+## Translations
+
+Widget strings are owned here, not by the consuming apps. `translations/extract_translations.py` scrapes `I18n.tr()` from `CyCommon/` into `translations/en.json`; the DMS POEditor project is the source of truth for translating those terms, and its sync writes the per-locale exports into `CyCommon/translations/poexports/`. Because that directory lives inside `CyCommon/`, translations ship to every consumer with the submodule pointer like any other file.
+
+Consuming apps keep their own POEditor projects app-only (their extractors must not descend into `CyCommon/`) and merge both sources at runtime in their `I18n` singleton - app terms win on collision.
+
+## Making changes
+
+Run `node tests/run.mjs` for the shape, foreground and QML widget regressions. Requires Node.js and Quickshell with its Qt QML modules. The widget tests run offscreen, two at a time, with separate Quickshell processes and temporary settings. `prek run common-tests --all-files` runs the same suite through the repository hook; GitHub Actions runs it on pushes and pull requests.
+
+The submodule is a real worktree; edit it in place inside whichever app you are working on and the running app picks changes up live. Land the library change first, then bump the submodule pointer in the app. If a change reads a new app-singleton property, add it to the root stubs and the contract above in the same PR; the gallery won't run without it. Other consumers upgrade whenever they bump the pointer - no lockstep.
+
+## Notes
+
+- `CyCommon/Common/Proc.qml` exposes `cyshellBin` (`CYSHELL_EXECUTABLE` env override, default `cyshell`). `CyLocationSearch` uses its `dl` command.
+- Log stays app-owned so each app keeps its own env-var prefix (`DMS_LOG_LEVEL`, `DANKCAL_LOG_LEVEL`, ...).
+
+Launcher metrics: `launcherTileSize`, `launcherImageRatio`, `launcherMaxVisibleRows`, `launcherWidthMicro`, `launcherWidthDefault`, `launcherWidthWide`, `launcherWidthLarge`, `launcherHeightDefault`, `launcherScreenMargin`. Rows use a uniform `listItemHeight`, `avatarSize` and the grouped list tokens. Modal dimming uses `scrimColor` with `scrimAlpha`.
+
+At `radiusStrength: 50`, the Expressive shape scale is 4, 8, 12, 16, 20, 28, 32 and 48 for XS, S, M, L, LIncreased, XL, XLIncreased and XXL. Zero removes configurable rounding. See [Shapes](SHAPES.md) for component baselines and legacy compatibility.
+
+`Style.foregroundColor(baseColor, floatingWindow)` applies the host's foreground toggle and opacity to a raw surface color. Cards, list items, fields and button groups use it for their background fills. Pass raw colors to field `backgroundColor`; any alpha in that color multiplies the foreground opacity. Text, icons and interaction states retain their own opacity.
+
+Mark a window's content root with `isFloatingWindowSurface: true` to use floating window preferences. A nested root with `isFloatingWindowSurface: false` uses global preferences. `Style.isFloatingWindow(item)` reads the nearest marker and supports the older `disablePopupTransparency: true` marker. Outer window and menu surfaces use window opacity separately from foreground fills.
+
+`CyMaterialShape` uses normalized cubic paths exported from [AndroidX MaterialShapes](https://github.com/androidx/androidx/blob/androidx-main/compose/material3/material3/src/commonMain/kotlin/androidx/compose/material3/MaterialShapes.kt) with AndroidX graphics-shapes 1.0.1. `shape` selects a lower-camel-case catalog name, including `cookie4`, `cookie6`, `cookie7`, `cookie9`, `cookie12`, `triangle`, `sunny`, `verySunny`, `flower`, `arch` and `heart`. `rotationScale` gives a scale that keeps the rotated outline inside its original inscribed circle. `rotationScaleForAspectRatio(width / height)` accounts for stretched artwork; multiply the available circle diameter by that scale for the artwork height, then by the aspect ratio for its width. `color` sets the fill. `fillProgress` (0–1) fills the shape from the bottom, with `trackColor` above the fill. Shapes become square when the theme radius is zero; set `respectThemeShape: false` for illustrations that must retain their geometry. See `MaterialShapes.NOTICE` beside the path data for licensing.
+
+`CyNavigationBar` accepts `model` entries with `icon` and `text`, `currentIndex`, and `orientation` (`Qt.Horizontal` or `Qt.Vertical`). It emits `activated(index)` and scrolls overflowing destinations. Horizontal destinations share the width evenly by default; `evenlySpaced: false` creates a compact centered group. Vertical destinations are always a centered group. With `editable: true`, the selected icon reveals a pencil on hover and emits `editRequested(index)`; F2 also requests editing. Labels remain visible below icons.
+
+Navigation tokens: `navigationHeight` (64), `navigationRailWidth` (96), `navigationItemMinWidth` (80), `navigationIndicatorWidth` (56), `navigationIndicatorHeight` (32), and `navigationVerticalPadding` (6). Shape uses `fullRadius`; strength 50 is the Material baseline.

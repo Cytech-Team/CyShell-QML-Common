@@ -1,0 +1,2 @@
+import QtQuick
+CyRefreshButton {}

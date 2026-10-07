@@ -61,11 +61,12 @@ Item {
             return;
         }
 
-        // Quickshell's Socket reconnects itself after a previously established
-        // connection drops. Replacing it here races that reconnect; only a
-        // failed initial connection needs a fresh Socket (onError also handles
-        // failed automatic reconnect attempts).
-        if (connected && !_hasConnectedOnce)
+        // Always keep a fresh-Socket retry armed after a disconnect. Quickshell
+        // may reconnect an established QLocalSocket by itself, but that is not
+        // reliable when a daemon restart replaces the Unix socket inode at the
+        // same path. If the built-in reconnect succeeds first, the link-up path
+        // above cancels this timer, so the fallback does not race a live link.
+        if (connected)
             _scheduleReconnect();
     }
 

@@ -185,3 +185,19 @@ Mark a window's content root with `isFloatingWindowSurface: true` to use floatin
 `CyNavigationBar` accepts `model` entries with `icon` and `text`, `currentIndex`, and `orientation` (`Qt.Horizontal` or `Qt.Vertical`). It emits `activated(index)` and scrolls overflowing destinations. Horizontal destinations share the width evenly by default; `evenlySpaced: false` creates a compact centered group. Vertical destinations are always a centered group. With `editable: true`, the selected icon reveals a pencil on hover and emits `editRequested(index)`; F2 also requests editing. Labels remain visible below icons.
 
 Navigation tokens: `navigationHeight` (64), `navigationRailWidth` (96), `navigationItemMinWidth` (80), `navigationIndicatorWidth` (56), `navigationIndicatorHeight` (32), and `navigationVerticalPadding` (6). Shape uses `fullRadius`; strength 50 is the Material baseline.
+
+---
+
+<!-- CYTECH_STAR_HISTORY:START -->
+
+## Star History
+
+<a href="https://star-history.dera.page/#Cytech-Team/CyShell-QML-Common&type=date&legend=top-left">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://star-history.dera.page/svg?repos=Cytech-Team/CyShell-QML-Common&type=date&legend=top-left&theme=dark" />
+    <source media="(prefers-color-scheme: light)" srcset="https://star-history.dera.page/svg?repos=Cytech-Team/CyShell-QML-Common&type=date&legend=top-left" />
+    <img alt="GitHub star history for Cytech-Team/CyShell-QML-Common" src="https://star-history.dera.page/svg?repos=Cytech-Team/CyShell-QML-Common&type=date&legend=top-left" width="800" />
+  </picture>
+</a>
+
+<!-- CYTECH_STAR_HISTORY:END -->

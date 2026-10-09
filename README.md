@@ -1,4 +1,18 @@
-# CyShell QML Common
+<!-- CYTECH_README_REFRESH:START -->
+<div align="center">
+
+<a href="https://github.com/Cytech-Team/CyShell-QML-Common"><img width="100%" alt="CyShell QML Common banner" src="https://capsule-render.vercel.app/api?type=waving&color=0:0F172A,100:14B8A6&height=210&section=header&text=CyShell%20QML%20Common&fontSize=39&fontColor=ffffff&fontAlignY=36&desc=Reusable%20QML%20components%20for%20the%20CyShell%20desktop&descAlignY=59&descSize=16"></a>
+
+<img alt="QML Library" src="https://img.shields.io/badge/PROJECT-QML%20Library-14B8A6?style=flat-square&labelColor=0F172A"> <img alt="Quickshell · QML" src="https://img.shields.io/badge/STACK-Quickshell%20%C2%B7%20QML-14B8A6?style=flat-square&labelColor=0F172A">
+
+<p><strong>Reusable QML components for the CyShell desktop</strong></p>
+
+<a href="https://github.com/Cytech-Team/CyShell-QML-Common">Repository</a> · <a href="https://github.com/Cytech-Team/CyShell-QML-Common/issues">Issues</a>
+
+</div>
+<!-- CYTECH_README_REFRESH:END -->
+
+---
 
 Shared QML assets for CyShell, forked from dank-qml-common.
 
